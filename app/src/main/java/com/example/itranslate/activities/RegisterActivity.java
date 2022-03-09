@@ -23,6 +23,7 @@ public class RegisterActivity extends AppCompatActivity {
     private EditText fistName, lastName, email, password, retypePassword;
     private ProgressBar progressBar;
     private final String TAG = "register";
+    private final String ROLE_USER = "USER";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +63,7 @@ public class RegisterActivity extends AppCompatActivity {
         User user = new User.Builder()
                 .withFullName(fistNameText, lastNameText)
                 .withEmail(emailText)
+                .withRole(ROLE_USER)
                 .build();
 
         // Validate form inputs
