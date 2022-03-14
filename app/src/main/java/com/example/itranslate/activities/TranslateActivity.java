@@ -14,11 +14,11 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.itranslate.Helper;
 import com.example.itranslate.R;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
@@ -27,9 +27,6 @@ import com.google.mlkit.nl.translate.Translation;
 import com.google.mlkit.nl.translate.Translator;
 import com.google.mlkit.nl.translate.TranslatorOptions;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
 public class TranslateActivity extends AppCompatActivity {
@@ -61,6 +58,11 @@ public class TranslateActivity extends AppCompatActivity {
 
         targetLanguageCode = sharedPreferences.getString("targetLanguage", Locale.getDefault().getLanguage());
         sourceLanguageCode = sharedPreferences.getString("sourceLanguage", "en");
+
+        // Dummy records
+        Helper.generateRandomRecords(getResources());
+        // Convert language codes to languages
+        // Helper.languageCodesToLanguages(getResources());
     }
 
     @Override
