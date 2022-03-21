@@ -7,10 +7,12 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -110,6 +112,15 @@ public class TranslateActivity extends AppCompatActivity {
                                 .build();
                 final Translator translator =
                         Translation.getClient(options);
+
+                WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+                if (!wifiMgr.isWifiEnabled() || wifiMgr.getConnectionInfo().getNetworkId() == -1) {
+                    Toast.makeText(TranslateActivity.this, R.string.requireWifi,
+                            Toast.LENGTH_SHORT).show();
+                    progressBar.setVisibility(View.GONE);
+                    downloadingText.setVisibility(View.GONE);
+                    return;
+                }
 
                 DownloadConditions conditions = new DownloadConditions.Builder()
                         .requireWifi()

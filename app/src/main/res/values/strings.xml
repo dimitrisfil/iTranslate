@@ -22,6 +22,7 @@
     <string name="translateTo">Translate to:</string>
     <string name="downloading">Downloading...</string>
     <string name="translateFrom">Translate from:</string>
+    <string name="requireWifi">Please connect to wifi to download the required model</string>
 
     // Languages
     <string-array name="supportedLanguageCodes">
