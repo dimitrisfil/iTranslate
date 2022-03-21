@@ -40,8 +40,10 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
@@ -54,16 +56,16 @@ public class CameraActivity extends AppCompatActivity {
     private TextRecognizer recognizer;
     private FrameLayout frameLayout;
     private ArrayList<TextView> textBlocks;
-    private static final int TEXT_BLOCKS = 10;
     private SharedPreferences sharedPreferences;
     private Translator translator;
-    private static final int MINIMUM_BLOCK_SIZE = 500;
+    private static final int MINIMUM_BLOCK_SIZE = 200;
     private String sourceLanguage;
     private String targetLanguage;
     private FirebaseAuth mAuth;
     private List<String> recognisedTexts;
     private String userCountry;
     private FirebaseFirestore db;
+    private Map<String, String> storedTranslations;
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
@@ -76,7 +78,8 @@ public class CameraActivity extends AppCompatActivity {
         cameraView = findViewById(R.id.previewView);
         recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-        initializeBlocks();
+        textBlocks = new ArrayList<>();
+        frameLayout = findViewById(R.id.frameLayout);
         sharedPreferences = getApplicationContext().getSharedPreferences("translationModels", 0);
 
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
@@ -97,17 +100,19 @@ public class CameraActivity extends AppCompatActivity {
         Locale locale = new Locale("", getUserCountry(this));
         userCountry = !locale.getDisplayCountry().isEmpty() ? locale.getDisplayCountry() : "Unknown";
         db = FirebaseFirestore.getInstance();
+        storedTranslations = new HashMap<>();
     }
 
-    private void initializeBlocks() {
-        frameLayout = findViewById(R.id.frameLayout);
-        textBlocks = new ArrayList<>();
-        for (int i = 0; i < TEXT_BLOCKS; i++) {
-            TextView textView = new TextView(this);
-            textView.setTextColor(Color.BLACK);
-            frameLayout.addView(textView);
-            textBlocks.add(textView);
-        }
+    private void initializeBlock() {
+        TextView textView = new TextView(this);
+        textView.setTextColor(Color.BLACK);
+        frameLayout.addView(textView);
+        textBlocks.add(textView);
+    }
+
+    private void destroyLastBlock() {
+        frameLayout.removeView(textBlocks.get(textBlocks.size() - 1));
+        textBlocks.remove(textBlocks.size() - 1);
     }
 
     @Override
@@ -132,7 +137,6 @@ public class CameraActivity extends AppCompatActivity {
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-
         // Preview
         Preview preview = new Preview.Builder().build();
         preview.setSurfaceProvider(cameraView.getSurfaceProvider());
@@ -151,45 +155,55 @@ public class CameraActivity extends AppCompatActivity {
                         InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 recognizer.process(image)
                         .addOnSuccessListener(visionText -> {
-                            textBlocks.stream()
-                                    .filter(textBlock -> textBlocks.indexOf(textBlock) >= visionText.getTextBlocks().size())
-                                    .forEach(textBlock -> {
-                                        textBlock.setText("");
-                                        textBlock.setBackgroundColor(Color.alpha(0));
-                                    });
+                            resizeTextBlocks(visionText);
                             for (Text.TextBlock block : visionText.getTextBlocks()) {
-                                String blockText = block.getText();
-                                Rect blockFrame = block.getBoundingBox();
-                                assert blockFrame != null;
-                                int rectSize = (blockFrame.right - blockFrame.left) + (blockFrame.bottom - blockFrame.top);
-                                if (rectSize < MINIMUM_BLOCK_SIZE) {
-                                    continue;
-                                }
-
-                                int index = visionText.getTextBlocks().indexOf(block);
-                                if (index < TEXT_BLOCKS) {
-                                    TextView textView = positionTextview(textBlocks.get(index), blockFrame);
-
-                                    // Translate text
-                                    translator.translate(blockText)
-                                            .addOnSuccessListener(
-                                                    (OnSuccessListener) translatedText -> {
-                                                        textView.setBackgroundColor(Color.WHITE);
-                                                        textView.getBackground().setAlpha(200);
-                                                        textView.setText(String.valueOf(translatedText));
-
-                                                        recordTranslation(blockText);
-                                                    });
-                                }
+                                translateText(visionText, block);
                             }
                         })
                         .addOnFailureListener(Throwable::printStackTrace)
                         .addOnCompleteListener(task ->
-                            imageProxy.close());
+                                imageProxy.close());
             }
         });
-
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
+    }
+
+    private void resizeTextBlocks(Text visionText) {
+        int blockSizeDiff = Math.abs(visionText.getTextBlocks().size() - textBlocks.size());
+        if (visionText.getTextBlocks().size() > textBlocks.size()) {
+            for (int i = 0; i < blockSizeDiff; i++) {
+                initializeBlock();
+            }
+        } else if (visionText.getTextBlocks().size() < textBlocks.size()) {
+            for (int i = 0; i < blockSizeDiff; i++) {
+                destroyLastBlock();
+            }
+        }
+    }
+
+    private void translateText(Text visionText, Text.TextBlock block) {
+        String blockText = block.getText();
+        Rect blockFrame = block.getBoundingBox();
+        assert blockFrame != null;
+        int rectSize = (blockFrame.right - blockFrame.left) + (blockFrame.bottom - blockFrame.top);
+        if (rectSize < MINIMUM_BLOCK_SIZE) {
+            return;
+        }
+        int index = visionText.getTextBlocks().indexOf(block);
+        TextView textView = positionTextview(textBlocks.get(index), blockFrame);
+        textView.setBackgroundColor(Color.WHITE);
+        textView.getBackground().setAlpha(200);
+        if (storedTranslations.containsKey(blockText)) {
+            textView.setText(String.valueOf(storedTranslations.get(blockText)));
+        } else {
+            translator.translate(blockText)
+                    .addOnSuccessListener(
+                            (OnSuccessListener) translatedText -> {
+                                storedTranslations.put(blockText, String.valueOf(translatedText));
+                                textView.setText(String.valueOf(translatedText));
+                                recordTranslation(blockText);
+                            });
+        }
     }
 
     private TextView positionTextview(TextView textView, Rect blockFrame) {
@@ -237,15 +251,13 @@ public class CameraActivity extends AppCompatActivity {
             final String simCountry = tm.getSimCountryIso();
             if (simCountry != null && simCountry.length() == 2) { // SIM country code is available
                 return simCountry.toLowerCase(Locale.US);
-            }
-            else if (tm.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA) { // device is not 3G (would be unreliable)
+            } else if (tm.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA) { // device is not 3G (would be unreliable)
                 String networkCountry = tm.getNetworkCountryIso();
                 if (networkCountry != null && networkCountry.length() == 2) { // network country code is available
                     return networkCountry.toLowerCase(Locale.US);
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
