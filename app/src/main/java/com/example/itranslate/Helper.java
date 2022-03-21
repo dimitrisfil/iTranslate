@@ -1,5 +1,6 @@
 package com.example.itranslate;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.util.Log;
@@ -10,6 +11,7 @@ import androidx.annotation.NonNull;
 
 import com.example.itranslate.activities.MainActivity;
 import com.example.itranslate.activities.RegisterActivity;
+import com.example.itranslate.activities.TranslateActivity;
 import com.example.itranslate.models.TranslationRecord;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -26,8 +28,8 @@ import java.util.Random;
 
 public class Helper {
 
-    public static void generateRandomRecords(Resources resources) {
-        FirebaseFirestore db= FirebaseFirestore.getInstance();
+    public static void generateRandomRecords(Resources resources, Context context) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         String[] userIds = {
                 "1atksWZbn6TKbe0IVAU4jrkkieP2",
@@ -58,9 +60,9 @@ public class Helper {
         };
 
         String[] text = {
-            "All she wanted was the answer, but she had no idea how much she would hate it.\n" +
-                    "The beauty of the sunset was obscured by the industrial cranes.\n" +
-                    "She saw the brake lights, but not in time.",
+                "All she wanted was the answer, but she had no idea how much she would hate it.\n" +
+                        "The beauty of the sunset was obscured by the industrial cranes.\n" +
+                        "She saw the brake lights, but not in time.",
                 "The view from the lighthouse excited even the most seasoned traveler.",
                 "He used to get confused between soldiers and shoulders, but as a military man, he now soldiers responsibility.\n" +
                         "Three generations with six decades of life experience.",
@@ -125,32 +127,32 @@ public class Helper {
 
         int userRnd, countryRnd, languageRnd1, languageRnd2, textRnd;
         long dateRand;
-        for (int i = 0; i < 100; i++) {
-            userRnd = new Random().nextInt(userIds.length);
-            countryRnd = new Random().nextInt(countries.length);
-            languageRnd1 = new Random().nextInt(languageCodes.length);
-            languageRnd2 = new Random().nextInt(languageCodes.length);
-            textRnd = new Random().nextInt(text.length);
-            dateRand = new Timestamp(offset + (long)(Math.random() * diff)).getTime();
+        userRnd = new Random().nextInt(userIds.length);
+        countryRnd = new Random().nextInt(countries.length);
+        languageRnd1 = new Random().nextInt(languageCodes.length);
+        languageRnd2 = new Random().nextInt(languageCodes.length);
+        textRnd = new Random().nextInt(text.length);
+        dateRand = new Timestamp(offset + (long) (Math.random() * diff)).getTime();
 
-            TranslationRecord record = new TranslationRecord.Builder(userIds[userRnd])
-                    .withCountry(countries[countryRnd])
-                    .withLanguages(languageCodes[languageRnd1], languageCodes[languageRnd2])
-                    .withText(text[textRnd])
-                    .withTimestamp(dateRand)
-                    .build();
+        TranslationRecord record = new TranslationRecord.Builder(userIds[userRnd])
+                .withCountry(countries[countryRnd])
+                .withLanguages(languageCodes[languageRnd1], languageCodes[languageRnd2])
+                .withText(text[textRnd])
+                .withTimestamp(dateRand)
+                .build();
 
-            db.collection("translations")
-                    .add(record)
-                    .addOnSuccessListener(documentReference -> {
-                    })
-                    .addOnFailureListener(e -> {
-                    });
-        }
+        db.collection("translations")
+                .add(record)
+                .addOnSuccessListener(documentReference -> {
+                    Toast.makeText(context, "success",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                });
     }
 
     public static void languageCodesToLanguages(Resources resources) {
-        FirebaseFirestore db= FirebaseFirestore.getInstance();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("translations")
                 .get()
                 .addOnCompleteListener(task -> {

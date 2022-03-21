@@ -10,6 +10,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -17,13 +18,17 @@ import android.graphics.Rect;
 import android.media.Image;
 import android.os.Build;
 import android.os.Bundle;
+import android.telephony.TelephonyManager;
 import android.util.Size;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.example.itranslate.R;
+import com.example.itranslate.models.TranslationRecord;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.mlkit.nl.translate.Translation;
 import com.google.mlkit.nl.translate.Translator;
 import com.google.mlkit.nl.translate.TranslatorOptions;
@@ -33,24 +38,32 @@ import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import info.debatty.java.stringsimilarity.Levenshtein;
 
 public class CameraActivity extends AppCompatActivity {
 
     private PreviewView cameraView;
-    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ImageAnalysis imageAnalysis;
     private TextRecognizer recognizer;
     private FrameLayout frameLayout;
     private ArrayList<TextView> textBlocks;
-    private final int TEXT_BLOCKS = 10;
+    private static final int TEXT_BLOCKS = 10;
     private SharedPreferences sharedPreferences;
     private Translator translator;
-    private static final int MINIMUM_BLOCK_SIZE = 400;
+    private static final int MINIMUM_BLOCK_SIZE = 500;
+    private String sourceLanguage;
+    private String targetLanguage;
+    private FirebaseAuth mAuth;
+    private List<String> recognisedTexts;
+    private String userCountry;
+    private FirebaseFirestore db;
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
@@ -58,21 +71,32 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
 
+        mAuth = FirebaseAuth.getInstance();
+
         cameraView = findViewById(R.id.previewView);
         recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
         initializeBlocks();
         sharedPreferences = getApplicationContext().getSharedPreferences("translationModels", 0);
 
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
                 startCameraX(cameraProvider);
-            } catch (ExecutionException | InterruptedException e) {
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException e) {
                 e.printStackTrace();
             }
         }, ContextCompat.getMainExecutor(this));
+        recognisedTexts = new ArrayList<>();
+
+        Locale locale = new Locale("", getUserCountry(this));
+        userCountry = !locale.getDisplayCountry().isEmpty() ? locale.getDisplayCountry() : "Unknown";
+        db = FirebaseFirestore.getInstance();
     }
 
     private void initializeBlocks() {
@@ -89,8 +113,8 @@ public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        String sourceLanguage = sharedPreferences.getString("sourceLanguage", "en");
-        String targetLanguage = sharedPreferences.getString("targetLanguage", Locale.getDefault().getLanguage());
+        sourceLanguage = sharedPreferences.getString("sourceLanguage", "en");
+        targetLanguage = sharedPreferences.getString("targetLanguage", Locale.getDefault().getLanguage());
 
         TranslatorOptions options =
                 new TranslatorOptions.Builder()
@@ -123,7 +147,6 @@ public class CameraActivity extends AppCompatActivity {
             @SuppressLint("UnsafeOptInUsageError")
             Image mediaImage = imageProxy.getImage();
             if (mediaImage != null) {
-                System.out.println(imageProxy.getImageInfo().getRotationDegrees());
                 InputImage image =
                         InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 recognizer.process(image)
@@ -137,6 +160,7 @@ public class CameraActivity extends AppCompatActivity {
                             for (Text.TextBlock block : visionText.getTextBlocks()) {
                                 String blockText = block.getText();
                                 Rect blockFrame = block.getBoundingBox();
+                                assert blockFrame != null;
                                 int rectSize = (blockFrame.right - blockFrame.left) + (blockFrame.bottom - blockFrame.top);
                                 if (rectSize < MINIMUM_BLOCK_SIZE) {
                                     continue;
@@ -144,21 +168,7 @@ public class CameraActivity extends AppCompatActivity {
 
                                 int index = visionText.getTextBlocks().indexOf(block);
                                 if (index < TEXT_BLOCKS) {
-                                    TextView textView = textBlocks.get(index);
-
-                                    int left = blockFrame.left;
-                                    int top = blockFrame.top;
-                                    int right = blockFrame.right;
-                                    int bottom = blockFrame.bottom + 30;
-
-                                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(right - left, bottom - top);
-                                    params.setMargins(
-                                            left,
-                                            top,
-                                            right,
-                                            bottom);
-                                    textView.setLayoutParams(params);
-                                    textView.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM);
+                                    TextView textView = positionTextview(textBlocks.get(index), blockFrame);
 
                                     // Translate text
                                     translator.translate(blockText)
@@ -167,22 +177,89 @@ public class CameraActivity extends AppCompatActivity {
                                                         textView.setBackgroundColor(Color.WHITE);
                                                         textView.getBackground().setAlpha(200);
                                                         textView.setText(String.valueOf(translatedText));
+
+                                                        recordTranslation(blockText);
                                                     });
                                 }
                             }
-
-
-
-
                         })
                         .addOnFailureListener(Throwable::printStackTrace)
-                        .addOnCompleteListener(task -> {
-                            imageProxy.close();
-                        });
+                        .addOnCompleteListener(task ->
+                            imageProxy.close());
             }
         });
 
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
+    }
+
+    private TextView positionTextview(TextView textView, Rect blockFrame) {
+        int left = blockFrame.left;
+        int top = blockFrame.top;
+        int right = blockFrame.right;
+        int bottom = blockFrame.bottom + 30;
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(right - left, bottom - top);
+        params.setMargins(
+                left,
+                top,
+                right,
+                bottom);
+        textView.setLayoutParams(params);
+        textView.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM);
+        return textView;
+    }
+
+    private void recordTranslation(String text) {
+        boolean isSimilar = false;
+        for (String recognisedText : recognisedTexts) {
+            isSimilar = isTextSimilar(recognisedText, text);
+            if (isSimilar) break;
+        }
+
+        if (!isSimilar) {
+            recognisedTexts.add(text);
+            TranslationRecord translationRecord = new TranslationRecord.Builder(mAuth.getUid())
+                    .withCountry(userCountry)
+                    .withLanguages(sourceLanguage, targetLanguage)
+                    .withText(text)
+                    .withTimestamp(Instant.now().toEpochMilli())
+                    .build();
+
+            db.collection("translations")
+                    .add(translationRecord)
+                    .addOnFailureListener(Throwable::printStackTrace);
+        }
+    }
+
+    public String getUserCountry(Context context) {
+        try {
+            final TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+            final String simCountry = tm.getSimCountryIso();
+            if (simCountry != null && simCountry.length() == 2) { // SIM country code is available
+                return simCountry.toLowerCase(Locale.US);
+            }
+            else if (tm.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA) { // device is not 3G (would be unreliable)
+                String networkCountry = tm.getNetworkCountryIso();
+                if (networkCountry != null && networkCountry.length() == 2) { // network country code is available
+                    return networkCountry.toLowerCase(Locale.US);
+                }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private boolean isTextSimilar(String text1, String text2) {
+        int lengthDifference = Math.abs(text1.length() - text2.length());
+        if (lengthDifference > 4) {
+            return false;
+        }
+        double averageLength = (((double) text1.length() + text2.length()) / 2);
+        Levenshtein levenshtein = new Levenshtein();
+        double score = levenshtein.distance(text1, text2) / averageLength;
+        return score < 0.2;
     }
 
     @Override
