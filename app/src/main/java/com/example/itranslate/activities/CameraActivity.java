@@ -58,7 +58,7 @@ public class CameraActivity extends AppCompatActivity {
     private ArrayList<TextView> textBlocks;
     private SharedPreferences sharedPreferences;
     private Translator translator;
-    private static final int MINIMUM_BLOCK_SIZE = 200;
+    private static final int MINIMUM_BLOCK_SIZE = 400;
     private String sourceLanguage;
     private String targetLanguage;
     private FirebaseAuth mAuth;
@@ -155,9 +155,9 @@ public class CameraActivity extends AppCompatActivity {
                         InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 recognizer.process(image)
                         .addOnSuccessListener(visionText -> {
-                            resizeTextBlocks(visionText);
-                            for (Text.TextBlock block : visionText.getTextBlocks()) {
-                                translateText(visionText, block);
+                            List<Text.TextBlock> renderedBlocks = resizeTextBlocks(visionText);
+                            for (Text.TextBlock block : renderedBlocks) {
+                                translateText(block, renderedBlocks.indexOf(block));
                             }
                         })
                         .addOnFailureListener(Throwable::printStackTrace)
@@ -168,29 +168,32 @@ public class CameraActivity extends AppCompatActivity {
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
     }
 
-    private void resizeTextBlocks(Text visionText) {
-        int blockSizeDiff = Math.abs(visionText.getTextBlocks().size() - textBlocks.size());
-        if (visionText.getTextBlocks().size() > textBlocks.size()) {
+    private List<Text.TextBlock> resizeTextBlocks(Text visionText) {
+        List<Text.TextBlock> renderedBlocks = new ArrayList<>();
+        for (Text.TextBlock block : visionText.getTextBlocks()) {
+            Rect blockFrame = block.getBoundingBox();
+            assert blockFrame != null;
+            int rectSize = (blockFrame.right - blockFrame.left) + (blockFrame.bottom - blockFrame.top);
+            if (rectSize > MINIMUM_BLOCK_SIZE) {
+                renderedBlocks.add(block);
+            }
+        }
+        int blockSizeDiff = Math.abs(renderedBlocks.size() - textBlocks.size());
+        if (renderedBlocks.size() > textBlocks.size()) {
             for (int i = 0; i < blockSizeDiff; i++) {
                 initializeBlock();
             }
-        } else if (visionText.getTextBlocks().size() < textBlocks.size()) {
+        } else if (renderedBlocks.size() < textBlocks.size()) {
             for (int i = 0; i < blockSizeDiff; i++) {
                 destroyLastBlock();
             }
         }
+        return renderedBlocks;
     }
 
-    private void translateText(Text visionText, Text.TextBlock block) {
+    private void translateText(Text.TextBlock block, int index) {
         String blockText = block.getText();
-        Rect blockFrame = block.getBoundingBox();
-        assert blockFrame != null;
-        int rectSize = (blockFrame.right - blockFrame.left) + (blockFrame.bottom - blockFrame.top);
-        if (rectSize < MINIMUM_BLOCK_SIZE) {
-            return;
-        }
-        int index = visionText.getTextBlocks().indexOf(block);
-        TextView textView = positionTextview(textBlocks.get(index), blockFrame);
+        TextView textView = positionTextview(textBlocks.get(index), block.getBoundingBox());
         textView.setBackgroundColor(Color.WHITE);
         textView.getBackground().setAlpha(200);
         if (storedTranslations.containsKey(blockText)) {
