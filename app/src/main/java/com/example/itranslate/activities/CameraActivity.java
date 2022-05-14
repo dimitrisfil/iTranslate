@@ -20,6 +20,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
 import android.util.Size;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -80,21 +81,32 @@ public class CameraActivity extends AppCompatActivity {
 
         textBlocks = new ArrayList<>();
         frameLayout = findViewById(R.id.frameLayout);
+        ViewTreeObserver viewTreeObserver = frameLayout.getViewTreeObserver();
+        if (viewTreeObserver.isAlive()) {
+            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    frameLayout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+                    cameraProviderFuture = ProcessCameraProvider.getInstance(CameraActivity.this);
+                    cameraProviderFuture.addListener(() -> {
+                        try {
+                            ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                            startCameraX(cameraProvider);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            Thread.currentThread().interrupt();
+                        } catch (ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                    }, ContextCompat.getMainExecutor(CameraActivity.this));
+
+                }
+            });
+        }
+
         sharedPreferences = getApplicationContext().getSharedPreferences("translationModels", 0);
 
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        cameraProviderFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                startCameraX(cameraProvider);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
-        }, ContextCompat.getMainExecutor(this));
         recognisedTexts = new ArrayList<>();
 
         Locale locale = new Locale("", getUserCountry(this));
@@ -213,7 +225,7 @@ public class CameraActivity extends AppCompatActivity {
         int left = blockFrame.left;
         int top = blockFrame.top;
         int right = blockFrame.right;
-        int bottom = blockFrame.bottom + 30;
+        int bottom = blockFrame.bottom;
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(right - left, bottom - top);
         params.setMargins(
