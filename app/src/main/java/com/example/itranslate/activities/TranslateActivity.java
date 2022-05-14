@@ -12,7 +12,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.wifi.WifiManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -113,9 +114,10 @@ public class TranslateActivity extends AppCompatActivity {
                 final Translator translator =
                         Translation.getClient(options);
 
-                WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-                if (!wifiMgr.isWifiEnabled() || wifiMgr.getConnectionInfo().getNetworkId() == -1) {
-                    Toast.makeText(TranslateActivity.this, R.string.requireWifi,
+                ConnectivityManager cm = (ConnectivityManager)getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                NetworkInfo nInfo = cm.getActiveNetworkInfo();
+                if (nInfo == null || !nInfo.isAvailable() || !nInfo.isConnected()) {
+                    Toast.makeText(TranslateActivity.this, R.string.requireInternet,
                             Toast.LENGTH_SHORT).show();
                     progressBar.setVisibility(View.GONE);
                     downloadingText.setVisibility(View.GONE);
@@ -123,7 +125,6 @@ public class TranslateActivity extends AppCompatActivity {
                 }
 
                 DownloadConditions conditions = new DownloadConditions.Builder()
-                        .requireWifi()
                         .build();
                 translator.downloadModelIfNeeded(conditions)
                         .addOnSuccessListener(

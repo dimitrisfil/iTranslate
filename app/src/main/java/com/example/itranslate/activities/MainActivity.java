@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
                         Intent intent = new Intent(MainActivity.this, TranslateActivity.class);
                         startActivity(intent);
                     } else {
+                        progressBar.setVisibility(View.GONE);
                         Toast.makeText(MainActivity.this, Objects.requireNonNull(task.getException()).getMessage(),
                                 Toast.LENGTH_SHORT).show();
                     }

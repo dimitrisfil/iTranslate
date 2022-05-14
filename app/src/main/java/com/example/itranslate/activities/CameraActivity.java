@@ -234,7 +234,7 @@ public class CameraActivity extends AppCompatActivity {
             recognisedTexts.add(text);
             TranslationRecord translationRecord = new TranslationRecord.Builder(mAuth.getUid())
                     .withCountry(userCountry)
-                    .withLanguages(sourceLanguage, targetLanguage)
+                    .withLanguages(new Locale(sourceLanguage).getDisplayLanguage(), new Locale(targetLanguage).getDisplayLanguage())
                     .withText(text)
                     .withTimestamp(Instant.now().toEpochMilli())
                     .build();
