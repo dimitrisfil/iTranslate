@@ -3,6 +3,7 @@ package com.example.itranslate.models;
 public class TranslationRecord {
     private String userId, country, sourceLanguage, targetLanguage, text;
     private long timestamp;
+    private double latitude, longitude;
 
     private TranslationRecord(TranslationRecord.Builder builder) {
         this.userId = builder.userId;
@@ -11,14 +12,17 @@ public class TranslationRecord {
         this.targetLanguage = builder.targetLanguage;
         this.text = builder.text;
         this.timestamp = builder.timestamp;
+        this.latitude = builder.latitude;
+        this.longitude = builder.longitude;
     }
 
     public static class Builder {
 
         private String userId, country, sourceLanguage, targetLanguage, text;
         private long timestamp;
+        private double latitude, longitude;
 
-        public Builder (String userId) {
+        public Builder(String userId) {
             this.userId = userId;
         }
 
@@ -40,6 +44,12 @@ public class TranslationRecord {
 
         public TranslationRecord.Builder withTimestamp(long timestamp) {
             this.timestamp = timestamp;
+            return this;
+        }
+
+        public TranslationRecord.Builder withLocation(double latitude, double longitude) {
+            this.latitude = latitude;
+            this.longitude = longitude;
             return this;
         }
 
@@ -70,5 +80,13 @@ public class TranslationRecord {
 
     public long getTimestamp() {
         return timestamp;
+    }
+
+    public double getLatitude() {
+        return latitude;
+    }
+
+    public double getLongitude() {
+        return longitude;
     }
 }

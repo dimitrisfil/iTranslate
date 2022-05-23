@@ -34,6 +34,7 @@ public class TranslateActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private static final int CAMERA_PERMISSION = 1001;
+    private static final int LOCATION_PERMISSION = 1002;
     private SharedPreferences sharedPreferences;
     private String targetLanguageCode, sourceLanguageCode;
     private ProgressBar progressBar;
@@ -69,8 +70,13 @@ public class TranslateActivity extends AppCompatActivity {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
-            goToCameraActivity();
         }
+        if (requestCode == LOCATION_PERMISSION && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+        }
+        goToCameraActivity();
     }
 
     /**
@@ -114,7 +120,7 @@ public class TranslateActivity extends AppCompatActivity {
                 final Translator translator =
                         Translation.getClient(options);
 
-                ConnectivityManager cm = (ConnectivityManager)getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                ConnectivityManager cm = (ConnectivityManager) getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
                 NetworkInfo nInfo = cm.getActiveNetworkInfo();
                 if (nInfo == null || !nInfo.isAvailable() || !nInfo.isConnected()) {
                     Toast.makeText(TranslateActivity.this, R.string.requireInternet,
@@ -167,6 +173,11 @@ public class TranslateActivity extends AppCompatActivity {
     public void translateCamera(View view) {
         if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(TranslateActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION);
+        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION);
         } else {
             goToCameraActivity();
         }

@@ -1,5 +1,6 @@
 package com.example.itranslate.activities;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
@@ -15,6 +16,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.media.Image;
 import android.os.Build;
 import android.os.Bundle;
@@ -50,7 +54,7 @@ import java.util.concurrent.Executors;
 
 import info.debatty.java.stringsimilarity.Levenshtein;
 
-public class CameraActivity extends AppCompatActivity {
+public class CameraActivity extends AppCompatActivity implements LocationListener {
 
     private PreviewView cameraView;
     private ImageAnalysis imageAnalysis;
@@ -67,6 +71,8 @@ public class CameraActivity extends AppCompatActivity {
     private String userCountry;
     private FirebaseFirestore db;
     private Map<String, String> storedTranslations;
+    private LocationManager manager;
+    private Location myLocation;
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
@@ -81,6 +87,7 @@ public class CameraActivity extends AppCompatActivity {
 
         textBlocks = new ArrayList<>();
         frameLayout = findViewById(R.id.frameLayout);
+        manager = (LocationManager)getSystemService(LOCATION_SERVICE);
         ViewTreeObserver viewTreeObserver = frameLayout.getViewTreeObserver();
         if (viewTreeObserver.isAlive()) {
             viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -127,6 +134,7 @@ public class CameraActivity extends AppCompatActivity {
         textBlocks.remove(textBlocks.size() - 1);
     }
 
+    @SuppressLint("MissingPermission")
     @Override
     protected void onStart() {
         super.onStart();
@@ -140,6 +148,8 @@ public class CameraActivity extends AppCompatActivity {
                         .build();
         translator =
                 Translation.getClient(options);
+
+        manager.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0,this);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -251,6 +261,7 @@ public class CameraActivity extends AppCompatActivity {
                     .withCountry(userCountry)
                     .withLanguages(new Locale(sourceLanguage).getDisplayLanguage(), new Locale(targetLanguage).getDisplayLanguage())
                     .withText(text)
+                    .withLocation(myLocation.getLatitude(), myLocation.getLongitude())
                     .withTimestamp(Instant.now().toEpochMilli())
                     .build();
 
@@ -294,5 +305,11 @@ public class CameraActivity extends AppCompatActivity {
         imageAnalysis.clearAnalyzer();
         startActivity(new Intent(getApplicationContext(), MainActivity.class));
         finish();
+    }
+
+    @Override
+    public void onLocationChanged(@NonNull Location location) {
+        myLocation = location;
+        manager.removeUpdates(this);
     }
 }
