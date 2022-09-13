@@ -177,9 +177,11 @@ public class CameraActivity extends AppCompatActivity implements LocationListene
                         InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
                 recognizer.process(image)
                         .addOnSuccessListener(visionText -> {
-                            List<Text.TextBlock> renderedBlocks = resizeTextBlocks(visionText);
-                            for (Text.TextBlock block : renderedBlocks) {
-                                translateText(block, renderedBlocks.indexOf(block));
+                            if (myLocation != null) {
+                                List<Text.TextBlock> renderedBlocks = resizeTextBlocks(visionText);
+                                for (Text.TextBlock block : renderedBlocks) {
+                                    translateText(block, renderedBlocks.indexOf(block));
+                                }
                             }
                         })
                         .addOnFailureListener(Throwable::printStackTrace)

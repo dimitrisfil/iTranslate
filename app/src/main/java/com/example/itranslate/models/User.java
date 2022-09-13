@@ -2,10 +2,10 @@ package com.example.itranslate.models;
 
 public class User {
 
-    private String fistName, lastName, email, role;
+    private String firstName, lastName, email, role;
 
     private User(Builder builder) {
-        this.fistName = builder.fistName;
+        this.firstName = builder.firstName;
         this.lastName = builder.lastName;
         this.email = builder.email;
         this.role = builder.role;
@@ -13,10 +13,10 @@ public class User {
 
     public static class Builder {
 
-        private String fistName, lastName, email, role;
+        private String firstName, lastName, email, role;
 
-        public Builder withFullName(String fistName, String lastName) {
-            this.fistName = fistName;
+        public Builder withFullName(String firstName, String lastName) {
+            this.firstName = firstName;
             this.lastName = lastName;
             return this;
         }
@@ -36,8 +36,8 @@ public class User {
         }
     }
 
-    public String getFistName() {
-        return fistName;
+    public String getFirstName() {
+        return firstName;
     }
 
     public String getLastName() {

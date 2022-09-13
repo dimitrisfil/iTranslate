@@ -20,7 +20,7 @@ public class RegisterActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-    private EditText fistName, lastName, email, password, retypePassword;
+    private EditText firstName, lastName, email, password, retypePassword;
     private ProgressBar progressBar;
     private final String TAG = "register";
     private final String ROLE_USER = "USER";
@@ -34,7 +34,7 @@ public class RegisterActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         progressBar = findViewById(R.id.registerProgressBar);
 
-        fistName = findViewById(R.id.firstNameRegister);
+        firstName = findViewById(R.id.firstNameRegister);
         lastName = findViewById(R.id.lastNameRegister);
         email = findViewById(R.id.emailAddressRegister);
         password = findViewById(R.id.passwordRegister);
@@ -54,14 +54,14 @@ public class RegisterActivity extends AppCompatActivity {
      * @param view View
      */
     public void register(View view) {
-        String fistNameText = fistName.getText().toString();
+        String firstNameText = firstName.getText().toString();
         String lastNameText = lastName.getText().toString();
         String emailText = email.getText().toString();
         String passwordText = password.getText().toString();
         String retypePasswordText = retypePassword.getText().toString();
 
         User user = new User.Builder()
-                .withFullName(fistNameText, lastNameText)
+                .withFullName(firstNameText, lastNameText)
                 .withEmail(emailText)
                 .withRole(ROLE_USER)
                 .build();
@@ -111,7 +111,7 @@ public class RegisterActivity extends AppCompatActivity {
     public boolean validateFields(User user,
                                   String password,
                                   String retypePassword) {
-        if (user.getFistName().equals("") ||
+        if (user.getFirstName().equals("") ||
                 user.getLastName().equals("") ||
                 user.getEmail().equals("") ||
                 password.equals("") ||
